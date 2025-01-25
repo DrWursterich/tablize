@@ -1,7 +1,6 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "tablize.h"
@@ -10,15 +9,24 @@ int main(int argc, char **argv) {
   char c;
   state s = HEADER_START;
   table_builder *b = new_table_builder();
+  int line = 1;
+  int position = 1;
+  int last_is_ascii = 0;
   while (read(STDIN_FILENO, &c, 1)) {
+    if (c == '\n') {
+      line += 1;
+      position = 1;
+    } else if (isascii(c) || (last_is_ascii = !last_is_ascii)) {
+      position += 1;
+    }
     s = parse[s](c, b);
     if (s == ERROR) {
-      printf("ERROR!\n");
+      printf(" at line %d, position %d\n", line, position);
       return 1;
     }
   };
   if (s != VALUE_START) {
-    printf("something went wrong\n");
+    printf("inproper amount of values\n");
     return 1;
   }
   table *t = finish_table(b);
@@ -83,9 +91,6 @@ void append_row_header_char(table_builder *b, char c) {
 }
 
 void set_row_alignment(table_builder *b, alignment a) {
-  if (b->current_row == b->length) {
-    // TODO: we have more alignments than rows ...
-  }
   b->rows[b->current_row++]->alignment = a;
 }
 
@@ -109,9 +114,6 @@ void finish_row_value(table_builder *b) {
 }
 
 table *finish_table(table_builder *b) {
-  if (b->current_row != b->length) {
-    // TODO: the fields do not spread evenly over the rows
-  }
   table *t = (table *)malloc(sizeof(table));
   t->size = b->length;
   t->rows = (row **)malloc(sizeof(row *) * t->size);
@@ -265,7 +267,7 @@ state parse_fresh(char c, table_builder *b) {
   case '\n':
     return HEADER_START;
   default:
-    // TODO: HOW THE FUCK DO I PROPERLY OUTPUT THIS ERROR ?!
+    printf("expected '|', got '%c'", c);
     return ERROR;
   }
 }
@@ -276,9 +278,8 @@ state parse_header_first_pipe(char c, table_builder *b) {
   case '\t':
     return HEADER_FIRST_PIPE;
   case '\n':
-    // the line is just a pipe
   case '|':
-    // headers cannot be empty
+    printf("header field cannot be empty");
     return ERROR;
   default:
     append_row_header_char(b, c);
@@ -291,6 +292,7 @@ state parse_header_field(char c, table_builder *b) {
   case '|':
     return HEADER_PIPE;
   case '\n':
+    printf("expected '|', got newline");
     return ERROR;
   case '\t':
     c = ' ';
@@ -303,7 +305,7 @@ state parse_header_field(char c, table_builder *b) {
 state parse_header_pipe(char c, table_builder *b) {
   switch (c) {
   case '|':
-    // headers cannot be empty
+    printf("header field cannot be empty");
     return ERROR;
   case ' ':
   case '\t':
@@ -326,6 +328,7 @@ state parse_separation_start(char c, table_builder *b) {
   case '\n':
     return SEPARATION_START;
   default:
+    printf("expected '|', got '%c'", c);
     return ERROR;
   }
 }
@@ -340,7 +343,11 @@ state parse_separation_first_pipe(char c, table_builder *b) {
   case ' ':
   case '\t':
     return SEPARATION_FIRST_PIPE;
+  case '\n':
+    printf("expected ':' or '-', got newline");
+    return ERROR;
   default:
+    printf("expected ':' or '-', got '%c'", c);
     return ERROR;
   }
 }
@@ -354,7 +361,11 @@ state parse_separation_left_alignment(char c, table_builder *b) {
   case ' ':
   case '\t':
     return SEPARATION_RIGHT_ALIGNMENT;
+  case '\n':
+    printf("expected '-' or '|', got newline");
+    return ERROR;
   default:
+    printf("expected '-' or '|', got '%c'", c);
     return ERROR;
   }
 }
@@ -373,7 +384,11 @@ state parse_separation_field(char c, table_builder *b) {
     return SEPARATION_RIGHT_ALIGNMENT;
   case '-':
     return SEPARATION_FIELD;
+  case '\n':
+    printf("expected '-', ':' or '|', got newline");
+    return ERROR;
   default:
+    printf("expected '-', ':' or '|', got '%c'", c);
     return ERROR;
   }
 }
@@ -385,7 +400,11 @@ state parse_separation_right_alignment(char c, table_builder *b) {
   case ' ':
   case '\t':
     return SEPARATION_RIGHT_ALIGNMENT;
+  case '\n':
+    printf("expected '|', got newline");
+    return ERROR;
   default:
+    printf("expected '|', got '%c'", c);
     return ERROR;
   }
 }
@@ -403,6 +422,7 @@ state parse_separation_pipe(char c, table_builder *b) {
   case '\n':
     return VALUE_START;
   default:
+    printf("expected '-', ':' or a newline, got '%c'", c);
     return ERROR;
   }
 }
@@ -416,6 +436,7 @@ state parse_value_start(char c, table_builder *b) {
   case '\n':
     return VALUE_START;
   default:
+    printf("expected '|', got '%c'", c);
     return ERROR;
   }
 }

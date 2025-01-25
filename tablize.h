@@ -34,11 +34,8 @@ typedef enum value_type {
 typedef struct row {
   char *header;
   alignment alignment;
-  /** size of the longest string found */
   int max_length;
-
   char **values;
-  /** amount of lines (aka values) */
   int size;
 } row;
 

@@ -2,11 +2,11 @@
 # tablize
 
 a very simple formatter for markdown tables. \
-reads from stdin and prints to stdout
+reads from stdin and prints to stdout.
 
 ## features
 
-consider the file `bad_table.md`:
+consider a file `bad_table.md`:
 ```markdown
 | key | value | description |
 | --- | --- | --- |
@@ -30,6 +30,8 @@ cat bad_table.md | tablize
 | NEW_LINE |     2 | beginning of a line     |
 | ERROR    |     3 | something failed        |
 ```
+
+columns, that do not explicitly specify a alignment but only contain numeric or empty fields are aligned to the right, others to the left.
 
 ## build
 
