@@ -96,8 +96,10 @@ void set_row_alignment(table_builder *b, alignment a) {
 
 void empty_row_value(table_builder *b) {
   b->current_row %= b->length;
-  row_builder *r = b->rows[b->current_row];
-  r->values[r->values_length++] = "\0";
+  row_builder *r = b->rows[b->current_row++];
+  char *string = (char *)malloc(sizeof(char));
+  string[0] = '\0';
+  r->values[r->values_length++] = string;
 }
 
 void new_row_value(table_builder *b, char c) {
