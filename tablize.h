@@ -20,9 +20,9 @@ typedef enum state {
 } state;
 
 typedef enum alignment {
+  NONE,
   LEFT,
   RIGHT,
-  NONE,
 } alignment;
 
 typedef enum value_type {

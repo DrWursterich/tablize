@@ -44,17 +44,23 @@ void print_table(table *t) {
   printf("|\n");
   for (int i = 0; i < t->size; i++) {
     r = t->rows[i];
-    printf("| ");
-    int length = r->max_length - 1;
-    if (r->alignment == LEFT) {
-      putchar(':');
+    int length = r->max_length - 3;
+    char last = '-';
+    switch (r->alignment) {
+    case LEFT:
+      printf("| :-");
+      break;
+    case RIGHT:
+      last = ':';
+    default:
+    case NONE:
+      printf("| --");
+      break;
     }
-    while (length-- > 0) {
+    while (length--) {
       putchar('-');
     }
-    if (r->alignment == RIGHT) {
-      putchar(':');
-    }
+    putchar(last);
     putchar(' ');
   }
   printf("|\n");
@@ -222,12 +228,24 @@ int count_unicode_chars(char *s) {
   return count;
 }
 
+alignment alignment_by_type(value_type type) {
+  switch (type) {
+  case NUMERIC:
+    return RIGHT;
+  case TEXT:
+    return LEFT;
+  default:
+  case EMPTY:
+    return NONE;
+  }
+}
+
 row *finish_row(row_builder *b) {
   row *r = (row *)malloc(sizeof(row));
   int real_length = b->header->length;
   r->header = finish_string(b->header);
   real_length -= count_unicode_chars(r->header);
-  r->alignment = b->alignment == NONE && b->type != NUMERIC ? LEFT : RIGHT;
+  r->alignment = b->alignment ? b->alignment : alignment_by_type(b->type);
   r->max_length = real_length > b->max_length ? real_length : b->max_length;
   r->values = realloc(b->values, sizeof(char **) * b->values_length);
   r->size = b->values_length;
