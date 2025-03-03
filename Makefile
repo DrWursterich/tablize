@@ -6,7 +6,7 @@ ifeq ($(PREFIX),)
 endif
 
 tablize: tablize.c tablize.h
-	$(CC) $(CFLAGS) -o $@ -g $^
+	$(CC) $(CFLAGS) -o $@ -g $^ -lm
 	$(RM) *.o
 
 .PHONY: install

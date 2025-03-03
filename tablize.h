@@ -1,6 +1,10 @@
 #ifndef TABLIZE_H
 #define TABLIZE_H
 
+#define ALIGN_CHAR_OFFSET (':' - '-')
+#define LEFT_ALIGN_CHAR(a) (char)('-' + (a & 1) * ALIGN_CHAR_OFFSET)
+#define RIGHT_ALIGN_CHAR(a) (char)('-' + ((a >> 1) & 1) * ALIGN_CHAR_OFFSET)
+
 typedef enum state {
   HEADER_START = 0,
   HEADER_FIRST_PIPE = 1,
@@ -8,27 +12,27 @@ typedef enum state {
   HEADER_PIPE = 3,
   SEPARATION_START = 4,
   SEPARATION_FIRST_PIPE = 5,
-  SEPARATION_LEFT_ALIGNMENT = 6,
-  SEPARATION_FIELD = 7,
-  SEPARATION_RIGHT_ALIGNMENT = 8,
-  SEPARATION_PIPE = 9,
-  VALUE_START = 10,
-  VALUE_FIRST_PIPE = 11,
-  VALUE_FIELD = 12,
-  VALUE_PIPE = 13,
-  ERROR = 14,
+  SEPARATION_FIELD = 6,
+  SEPARATION_RIGHT_ALIGNMENT = 7,
+  SEPARATION_PIPE = 8,
+  VALUE_START = 9,
+  VALUE_FIRST_PIPE = 10,
+  VALUE_FIELD = 11,
+  VALUE_PIPE = 12,
+  ERROR = 13,
 } state;
 
 typedef enum alignment {
-  NONE,
-  LEFT,
-  RIGHT,
+  NONE = 0,
+  LEFT = 1,
+  RIGHT = 2,
+  CENTER = 3,
 } alignment;
 
 typedef enum value_type {
-  EMPTY,
-  NUMERIC,
-  TEXT,
+  EMPTY = 0,
+  NUMERIC = 1,
+  TEXT = 2,
 } value_type;
 
 typedef struct row {
@@ -72,6 +76,7 @@ typedef struct table_builder {
 int main(int argc, char **argv);
 
 void print_table(table *t);
+void center_value(char *text, int max_length, int unicodes);
 
 state parse_fresh(char c, table_builder *b);
 state parse_header_first_pipe(char c, table_builder *b);
@@ -79,7 +84,6 @@ state parse_header_field(char c, table_builder *b);
 state parse_header_pipe(char c, table_builder *b);
 state parse_separation_start(char c, table_builder *b);
 state parse_separation_first_pipe(char c, table_builder *b);
-state parse_separation_left_alignment(char c, table_builder *b);
 state parse_separation_field(char c, table_builder *b);
 state parse_separation_right_alignment(char c, table_builder *b);
 state parse_separation_pipe(char c, table_builder *b);
@@ -91,7 +95,9 @@ state parse_value_pipe(char c, table_builder *b);
 table_builder *new_table_builder();
 void new_row(table_builder *b);
 void append_row_header_char(table_builder *b, char c);
-void set_row_alignment(table_builder *b, alignment a);
+void separator_left_colon(table_builder *b);
+void separator_right_colon(table_builder *b);
+void separator_no_right_colon(table_builder *b);
 void empty_row_value(table_builder *b);
 void new_row_value(table_builder *b, char c);
 void append_row_value_char(table_builder *b, char c);
@@ -120,7 +126,6 @@ static state (*parse[])(char, table_builder *) = {
     &parse_header_pipe,
     &parse_separation_start,
     &parse_separation_first_pipe,
-    &parse_separation_left_alignment,
     &parse_separation_field,
     &parse_separation_right_alignment,
     &parse_separation_pipe,

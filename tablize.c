@@ -1,6 +1,8 @@
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "tablize.h"
@@ -44,23 +46,13 @@ void print_table(table *t) {
   printf("|\n");
   for (int i = 0; i < t->size; i++) {
     r = t->rows[i];
-    int length = r->max_length - 3;
-    char last = '-';
-    switch (r->alignment) {
-    case LEFT:
-      printf("| :-");
-      break;
-    case RIGHT:
-      last = ':';
-    default:
-    case NONE:
-      printf("| --");
-      break;
-    }
+    int length = r->max_length - 2;
+    printf("| ");
+    putchar(LEFT_ALIGN_CHAR(r->alignment));
     while (length--) {
       putchar('-');
     }
-    putchar(last);
+    putchar(RIGHT_ALIGN_CHAR(r->alignment));
     putchar(' ');
   }
   printf("|\n");
@@ -68,11 +60,30 @@ void print_table(table *t) {
     for (int j = 0; j < t->size; j++) {
       r = t->rows[j];
       int unicodes = count_unicode_chars(r->values[i]);
-      char *format = r->alignment == LEFT ? "| %-*s " : "| %*s ";
-      printf(format, r->max_length + unicodes, r->values[i]);
+      switch (r->alignment) {
+      case LEFT:
+        printf("| %-*s ", r->max_length + unicodes, r->values[i]);
+        break;
+      case CENTER:
+        center_value(r->values[i], r->max_length, unicodes);
+        break;
+      case RIGHT:
+      case NONE:
+      default:
+        printf("| %*s ", r->max_length + unicodes, r->values[i]);
+        break;
+      }
     }
     printf("|\n");
   }
+}
+
+void center_value(char *text, int max_length, int unicodes) {
+  int len = strlen(text);
+  double padding = (double)(max_length - len) / 2.0;
+  int left = len + floor(padding) + unicodes;
+  int right = ceil(padding);
+  printf("| %*s%*s ", left, text, right, "");
 }
 
 table_builder *new_table_builder() {
@@ -96,9 +107,15 @@ void append_row_header_char(table_builder *b, char c) {
   append_header_char(b->rows[b->length - 1], c);
 }
 
-void set_row_alignment(table_builder *b, alignment a) {
-  b->rows[b->current_row++]->alignment = a;
+void separator_left_colon(table_builder *b) {
+  b->rows[b->current_row]->alignment = LEFT;
 }
+
+void separator_right_colon(table_builder *b) {
+  b->rows[b->current_row++]->alignment += 2;
+}
+
+void separator_no_right_colon(table_builder *b) { b->current_row += 1; }
 
 void empty_row_value(table_builder *b) {
   b->current_row %= b->length;
@@ -356,8 +373,7 @@ state parse_separation_start(char c, table_builder *b) {
 state parse_separation_first_pipe(char c, table_builder *b) {
   switch (c) {
   case ':':
-    set_row_alignment(b, LEFT);
-    return SEPARATION_LEFT_ALIGNMENT;
+    separator_left_colon(b);
   case '-':
     return SEPARATION_FIELD;
   case ' ':
@@ -372,35 +388,17 @@ state parse_separation_first_pipe(char c, table_builder *b) {
   }
 }
 
-state parse_separation_left_alignment(char c, table_builder *b) {
-  switch (c) {
-  case '|':
-    return SEPARATION_PIPE;
-  case '-':
-    return SEPARATION_LEFT_ALIGNMENT;
-  case ' ':
-  case '\t':
-    return SEPARATION_RIGHT_ALIGNMENT;
-  case '\n':
-    printf("expected '-' or '|', got newline");
-    return ERROR;
-  default:
-    printf("expected '-' or '|', got '%c'", c);
-    return ERROR;
-  }
-}
-
 state parse_separation_field(char c, table_builder *b) {
   switch (c) {
   case '|':
-    set_row_alignment(b, NONE);
+    separator_no_right_colon(b);
     return SEPARATION_PIPE;
   case ':':
-    set_row_alignment(b, RIGHT);
+    separator_right_colon(b);
     return SEPARATION_RIGHT_ALIGNMENT;
   case ' ':
   case '\t':
-    set_row_alignment(b, NONE);
+    separator_no_right_colon(b);
     return SEPARATION_RIGHT_ALIGNMENT;
   case '-':
     return SEPARATION_FIELD;
@@ -435,8 +433,7 @@ state parse_separation_pipe(char c, table_builder *b) {
   case '\t':
     return SEPARATION_PIPE;
   case ':':
-    set_row_alignment(b, LEFT);
-    return SEPARATION_LEFT_ALIGNMENT;
+    separator_left_colon(b);
   case '-':
     return SEPARATION_FIELD;
   case '\n':
