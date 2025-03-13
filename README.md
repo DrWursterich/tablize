@@ -33,6 +33,8 @@ cat bad_table.md | tablize
 
 columns, that do not explicitly specify a alignment but only contain numeric or empty fields are aligned to the right, others to the left.
 
+with `--preserve-indent`/`-i` the indentation of the table is aligned with the indentation of the header row, otherwise all indentation is removed.
+
 ## build
 
 ```sh

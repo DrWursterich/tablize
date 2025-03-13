@@ -46,6 +46,7 @@ typedef struct row {
 typedef struct table {
   row **rows;
   int size;
+  char *indent;
 } table;
 
 typedef struct string_builder {
@@ -71,6 +72,7 @@ typedef struct table_builder {
   int length;
   int capacity;
   int current_row;
+  string_builder *indent;
 } table_builder;
 
 int main(int argc, char **argv);

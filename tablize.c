@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <getopt.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,7 +8,36 @@
 
 #include "tablize.h"
 
+static int preserve_indent = 0;
+
+static struct option long_options[] = {
+    {"preserve-indent", 0, &preserve_indent, 1}, {0, 0, 0, 0}};
+
+void parse_args(int argc, char **argv) {
+  while (1) {
+    switch (getopt_long(argc, argv, "i", long_options, 0)) {
+    case 'i':
+      preserve_indent = 1;
+    case 0:
+      break;
+    case -1:
+      if (optind == argc) {
+        return;
+      }
+      fprintf(stderr, "%s: excess argument(s) \"", argv[0]);
+      while (optind < argc) {
+        fprintf(stderr, "%s ", argv[optind++]);
+      }
+      fprintf(stderr, "\"\n");
+    default:
+      fprintf(stderr, "usage: tablize [--preserve-indent|-i]\n");
+      exit(EXIT_FAILURE);
+    }
+  }
+}
+
 int main(int argc, char **argv) {
+  parse_args(argc, argv);
   char c;
   state s = HEADER_START;
   table_builder *b = new_table_builder();
@@ -23,12 +53,12 @@ int main(int argc, char **argv) {
     }
     s = parse[s](c, b);
     if (s == ERROR) {
-      printf(" at line %d, position %d\n", line, position);
+      fprintf(stderr, " at line %d, position %d\n", line, position);
       return 1;
     }
   };
   if (s != VALUE_START) {
-    printf("inproper amount of values\n");
+    fprintf(stderr, "inproper amount of values\n");
     return 1;
   }
   table *t = finish_table(b);
@@ -39,11 +69,13 @@ int main(int argc, char **argv) {
 
 void print_table(table *t) {
   row *r;
+  char *indent = preserve_indent ? t->indent : "\0";
+  printf("%s", indent);
   for (int i = 0; i < t->size; i++) {
     r = t->rows[i];
     printf("| %-*s ", r->max_length, r->header);
   }
-  printf("|\n");
+  printf("|\n%s", indent);
   for (int i = 0; i < t->size; i++) {
     r = t->rows[i];
     int length = r->max_length - 2;
@@ -57,6 +89,7 @@ void print_table(table *t) {
   }
   printf("|\n");
   for (int i = 0; i < t->rows[0]->size; i++) {
+    printf("%s", indent);
     for (int j = 0; j < t->size; j++) {
       r = t->rows[j];
       int unicodes = count_unicode_chars(r->values[i]);
@@ -92,6 +125,7 @@ table_builder *new_table_builder() {
   b->rows = (row_builder **)malloc(sizeof(row_builder *) * b->capacity);
   b->length = 0;
   b->current_row = 0;
+  b->indent = new_string_builder();
   return b;
 }
 
@@ -145,6 +179,7 @@ table *finish_table(table_builder *b) {
   for (int i = 0; i < b->length; i++) {
     t->rows[i] = finish_row(b->rows[i]);
   }
+  t->indent = finish_string(b->indent);
   free(b->rows);
   free(b);
   return t;
@@ -160,6 +195,7 @@ void free_table(table *t) {
     free(r->values);
   }
   free(t->rows);
+  free(t->indent);
 }
 
 row_builder *new_row_builder() {
@@ -301,10 +337,11 @@ state parse_fresh(char c, table_builder *b) {
     return HEADER_FIRST_PIPE;
   case ' ':
   case '\t':
+    append_char(b->indent, c);
   case '\n':
     return HEADER_START;
   default:
-    printf("expected '|', got '%c'", c);
+    fprintf(stderr, "expected '|', got '%c'", c);
     return ERROR;
   }
 }
@@ -316,7 +353,7 @@ state parse_header_first_pipe(char c, table_builder *b) {
     return HEADER_FIRST_PIPE;
   case '\n':
   case '|':
-    printf("header field cannot be empty");
+    fprintf(stderr, "header field cannot be empty");
     return ERROR;
   default:
     append_row_header_char(b, c);
@@ -329,7 +366,7 @@ state parse_header_field(char c, table_builder *b) {
   case '|':
     return HEADER_PIPE;
   case '\n':
-    printf("expected '|', got newline");
+    fprintf(stderr, "expected '|', got newline");
     return ERROR;
   case '\t':
     c = ' ';
@@ -342,7 +379,7 @@ state parse_header_field(char c, table_builder *b) {
 state parse_header_pipe(char c, table_builder *b) {
   switch (c) {
   case '|':
-    printf("header field cannot be empty");
+    fprintf(stderr, "header field cannot be empty");
     return ERROR;
   case ' ':
   case '\t':
@@ -365,7 +402,7 @@ state parse_separation_start(char c, table_builder *b) {
   case '\n':
     return SEPARATION_START;
   default:
-    printf("expected '|', got '%c'", c);
+    fprintf(stderr, "expected '|', got '%c'", c);
     return ERROR;
   }
 }
@@ -380,10 +417,10 @@ state parse_separation_first_pipe(char c, table_builder *b) {
   case '\t':
     return SEPARATION_FIRST_PIPE;
   case '\n':
-    printf("expected ':' or '-', got newline");
+    fprintf(stderr, "expected ':' or '-', got newline");
     return ERROR;
   default:
-    printf("expected ':' or '-', got '%c'", c);
+    fprintf(stderr, "expected ':' or '-', got '%c'", c);
     return ERROR;
   }
 }
@@ -403,10 +440,10 @@ state parse_separation_field(char c, table_builder *b) {
   case '-':
     return SEPARATION_FIELD;
   case '\n':
-    printf("expected '-', ':' or '|', got newline");
+    fprintf(stderr, "expected '-', ':' or '|', got newline");
     return ERROR;
   default:
-    printf("expected '-', ':' or '|', got '%c'", c);
+    fprintf(stderr, "expected '-', ':' or '|', got '%c'", c);
     return ERROR;
   }
 }
@@ -419,10 +456,10 @@ state parse_separation_right_alignment(char c, table_builder *b) {
   case '\t':
     return SEPARATION_RIGHT_ALIGNMENT;
   case '\n':
-    printf("expected '|', got newline");
+    fprintf(stderr, "expected '|', got newline");
     return ERROR;
   default:
-    printf("expected '|', got '%c'", c);
+    fprintf(stderr, "expected '|', got '%c'", c);
     return ERROR;
   }
 }
@@ -439,7 +476,7 @@ state parse_separation_pipe(char c, table_builder *b) {
   case '\n':
     return VALUE_START;
   default:
-    printf("expected '-', ':' or a newline, got '%c'", c);
+    fprintf(stderr, "expected '-', ':' or a newline, got '%c'", c);
     return ERROR;
   }
 }
@@ -453,7 +490,7 @@ state parse_value_start(char c, table_builder *b) {
   case '\n':
     return VALUE_START;
   default:
-    printf("expected '|', got '%c'", c);
+    fprintf(stderr, "expected '|', got '%c'", c);
     return ERROR;
   }
 }
